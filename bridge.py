@@ -289,6 +289,10 @@ class HeyuBridge:
         """
         cmd = [self.heyu, "monitor"]
         log.info("starting %s", " ".join(cmd))
+        self._last_monitor_time = time.time()
+        # Start watchdog thread to detect heyu engine stalls (CM11A comm issues)
+        wd = threading.Thread(target=self._monitor_watchdog, daemon=True)
+        wd.start()
         while not self._stop.is_set():
             try:
                 proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
@@ -304,12 +308,37 @@ class HeyuBridge:
                 line = line.strip()
                 if not line:
                     continue
+                self._last_monitor_time = time.time()
                 self._parse_monitor_line(line)
             rc = proc.poll()
             log.warning("heyu monitor exited rc=%s; restarting in 5s", rc)
             if self._stop.is_set():
                 break
             time.sleep(5)
+
+    def _monitor_watchdog(self):
+        """Watchdog: if heyu monitor is silent for >90s, restart heyu engine.
+
+        The W800RF32A receives motion sensor events every ~10s, so 90s of
+        silence means heyu is likely stuck on CM11A communication.
+        """
+        while not self._stop.is_set():
+            time.sleep(30)
+            if self._stop.is_set():
+                break
+            silence = time.time() - self._last_monitor_time
+            if silence > 90:
+                log.warning("watchdog: heyu monitor silent for %.0fs; restarting engine", silence)
+                try:
+                    subprocess.run([self.heyu, "stop"], timeout=10,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    time.sleep(2)
+                    subprocess.run([self.heyu, "start"], timeout=10,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    log.info("watchdog: heyu engine restarted")
+                except Exception as e:
+                    log.error("watchdog: failed to restart heyu: %s", e)
+                self._last_monitor_time = time.time()  # reset to avoid repeated restarts
 
     def _parse_monitor_line(self, line: str):
         """Parse one `heyu monitor` line and publish state.

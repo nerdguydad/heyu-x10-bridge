@@ -145,6 +145,13 @@ class HeyuBridge:
             log.exception("handle_command failed topic=%s", msg.topic)
 
     def publish_state(self, name, state, retain=True):
+        # Debounce: skip if state hasn't changed (avoid flooding HA with duplicate RF events)
+        if not hasattr(self, "_state_cache"):
+            self._state_cache = {}
+        if self._state_cache.get(name) == state:
+            log.debug("debounce: skipping duplicate state %s for %s", state, name)
+            return
+        self._state_cache[name] = state
         self.client.publish(f"{self.topic_prefix}/state/{name}", state, retain=retain)
 
     # -- discovery --
@@ -156,7 +163,11 @@ class HeyuBridge:
         comp = d["component"]
         name = d["name"]
         node = "x10"
-        disc = f"{self.discovery_prefix}/{comp}/{node}/{name}/config"
+        # For device_trigger (keyfobs), publish the sensor entity under "sensor"
+        # component so HA creates a sensor entity. Device automations are published
+        # separately below.
+        disc_comp = "sensor" if comp == "device_trigger" else comp
+        disc = f"{self.discovery_prefix}/{disc_comp}/{node}/{name}/config"
         st_topic = f"{self.topic_prefix}/state/{name}"
         cmd_topic = f"{self.topic_prefix}/cmnd/{name}"
         cfg = {
@@ -320,28 +331,33 @@ class HeyuBridge:
                 unit = m.group(1)
                 house = m.group(2).upper()
                 addr = f"{house}{unit}"
-                func = self._func_from_line(line)
-                if func:
-                    state = "ON" if func in ("on", "onunit", "bright") else "OFF" if func in ("off", "offunit", "alllightsoff") else None
-                    if state:
-                        for d in self.dm.find_by_addr(addr):
-                            if d.get("component") in ("light", "switch", "binary_sensor"):
-                                self.publish_state(d["name"], state)
-                    return
+                # Store the last addressed unit for the next snda func line
+                self._last_snda_addr = addr
+                log.debug("snda addr: stored last addr=%s", addr)
+                return
             # Parse function from snda func line: "snda func On : hc D"
             m = re.search(r"snda func\s+(\w+)\s*:\s*hc\s+([A-Pa-p])", line)
             if m:
                 func = m.group(1).lower()
                 house = m.group(2).upper()
-                # For snda func lines, we need to determine which unit this applies to
-                # This might require tracking state from previous snda addr lines
-                # For now, try to match any device with this house code
-                for d in self.dm.devices:
-                    if d.get("kind") == "rf" and d.get("addr", "").upper().startswith(house):
-                        state = "ON" if func in ("on", "onunit", "bright") else "OFF" if func in ("off", "offunit", "alllightsoff") else None
-                        if state:
+                state = "ON" if func in ("on", "onunit", "bright") else "OFF" if func in ("off", "offunit", "alllightsoff") else None
+                if state:
+                    # Use the last addressed unit if available
+                    last_addr = getattr(self, "_last_snda_addr", None)
+                    if last_addr and last_addr.upper().startswith(house):
+                        addr = last_addr
+                        log.debug("snda func: applying %s to last addr=%s", func, addr)
+                        for d in self.dm.find_by_addr(addr):
                             if d.get("component") in ("light", "switch", "binary_sensor"):
+                                log.info("snda: publishing state %s for %s (addr=%s)", state, d["name"], addr)
                                 self.publish_state(d["name"], state)
+                    else:
+                        # Fall back to matching any device with this house code
+                        for d in self.dm.devices:
+                            if d.get("addr", "").upper().startswith(house):
+                                if d.get("component") in ("light", "switch", "binary_sensor"):
+                                    log.info("snda: publishing state %s for %s (addr=%s)", state, d["name"], d.get("addr"))
+                                    self.publish_state(d["name"], state)
                 return
         # Try powerline: look for a house/unit token like A1, C10, M1 ...
         m = re.search(r"\b([A-Pa-p]\d{1,2})\b", line)
@@ -361,13 +377,17 @@ class HeyuBridge:
             for d in devs:
                 if d.get("kind") != "rf":
                     continue
-                # codes like 80, 38, CB, BE, b2 -> match token
-                if re.search(rf"\b{re.escape(code)}\b", upper):
+                # Match code as token (e.g. "7D" matches "0x7D" in line)
+                # Also try with 0x prefix for heyu's "Type Sec ID 0x7D" format
+                pat = rf"(?:0x)?{re.escape(code)}\b"
+                if re.search(pat, upper):
                     ev = self._rf_event_from_line(line, d)
                     if ev:
                         if d.get("component") == "device_trigger":
+                            log.info("rf: publishing event %s for %s", ev, d["name"])
                             self.publish_state(d["name"], ev, retain=False)
                         else:
+                            log.info("rf: publishing state %s for %s", normalize_state(ev), d["name"])
                             self.publish_state(d["name"], normalize_state(ev))
                     return
         log.debug("unparsed monitor line: %s", line)
@@ -386,7 +406,26 @@ class HeyuBridge:
             return "alert"
         if "normal" in low:
             return "normal"
-        # keyfob discrete events
+        # keyfob: decode data byte using device's data_map
+        data_map = d.get("data_map")
+        if data_map:
+            m = re.search(r"Data\s+(0x[0-9A-Fa-f]+)", line)
+            if m:
+                data_byte = m.group(1)
+                # Try exact match, uppercase hex digits only (keep 0x prefix lowercase)
+                ev = data_map.get(data_byte)
+                if not ev:
+                    # Normalize: lowercase 0x prefix, uppercase hex digits
+                    normalized = "0x" + data_byte[2:].upper()
+                    ev = data_map.get(normalized)
+                if not ev:
+                    ev = data_map.get(data_byte.upper())
+                if not ev:
+                    ev = data_map.get(data_byte.lower())
+                if ev:
+                    log.debug("keyfob data byte %s -> event %s", data_byte, ev)
+                    return ev
+        # keyfob discrete events (fallback: match event name in line)
         for ev in d.get("events", []):
             if ev.replace("_", "") in low.replace("_", ""):
                 return ev

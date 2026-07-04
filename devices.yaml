@@ -258,11 +258,17 @@ powerline_dark_sensors:
 # Represented as HA device_trigger (for automations) + a sensor showing last event.
 rf_keyfobs:
   - name: craig_security_fob
-    addr: BE
+    addr: 7D
     kind: rf
     component: device_trigger
     controllable: false
-    events: [lights_on, lights_off]
+    events: [arm, disarm, lights_on, lights_off, panic]
+    data_map:
+      "0x06": arm
+      "0x86": disarm
+      "0x46": lights_on
+      "0xC6": lights_off
+      "0x26": panic
     meross_uuids: [2109275593887451807348e1e9786c7b, 2109279915196351807348e1e9786741]
   - name: craig_bedside_control
     addr: B8

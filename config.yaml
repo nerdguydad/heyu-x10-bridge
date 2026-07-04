@@ -1,0 +1,42 @@
+name: Heyu X10 Bridge
+version: "0.1.0"
+slug: heyu_x10_bridge
+description: Bridge X10 powerline (CM11A) and X10 security RF (W800RF32A, 315 MHz) via heyu to MQTT for Home Assistant
+url: https://github.com/nerdguydad/heyu-x10-bridge
+arch:
+  - amd64
+  - aarch64
+init: false
+usb: true
+uart: true
+# Map the two USB-serial adapters explicitly so they're visible in the container.
+devices:
+  - /dev/ttyUSB0
+  - /dev/ttyUSB1
+  - /dev/serial/by-id
+services:
+  - mqtt:want
+options:
+  cm11_tty: /dev/ttyUSB1
+  w800_tty: /dev/ttyUSB0
+  w800_type: W800RF32A
+  housecode: A
+  topic_prefix: x10
+  discovery_prefix: homeassistant
+  mqtt_host: core-mosquitto
+  mqtt_port: 1883
+  mqtt_user: ""
+  mqtt_password: ""
+  log_level: INFO
+schema:
+  cm11_tty: str
+  w800_tty: str
+  w800_type: list(W800RF32A|W800RF32|MR26A)
+  housecode: str
+  topic_prefix: str
+  discovery_prefix: str
+  mqtt_host: str
+  mqtt_port: port
+  mqtt_user: str
+  mqtt_password: password
+  log_level: list(DEBUG|INFO|WARNING|ERROR)

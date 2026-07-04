@@ -1,0 +1,23 @@
+# heyu x10config — template (the add-on generates the real one in run.sh from options)
+# Directives confirmed from heyu docs:
+#   TTY      <serial port>                 -> CM11A powerline interface
+#   TTY_AUX  <serial port> <receiver type> -> W800RF32A RF receiver (315 MHz)
+#   HOUSECODE <A-P>                         -> default housecode
+#   START_ENGINE AUTO                       -> `heyu start` launches engine + relay
+#
+# On the current x10 box the two Prolific USB-serial adapters are:
+#   CM11 (powerline):  usb-Prolific_Technology_Inc._USB-Serial_Controller_DMCJb133812-if00-port0  (ttyUSB1)
+#   W800  (RF 315MHz): usb-Prolific_Technology_Inc._USB-Serial_Controller_BWAGc143M08-if00-port0  (ttyUSB0)
+# When moved to the HA OS box, re-detect the by-id paths (ls /dev/serial/by-id)
+# and set the add-on options cm11_tty / w800_tty accordingly.
+
+TTY /dev/ttyUSB1
+TTY_AUX /dev/ttyUSB0 W800RF32A
+HOUSECODE A
+START_ENGINE AUTO
+
+# Optional: RF security device aliases so `heyu monitor` prints readable names.
+# The bridge maps by code regardless, so these are cosmetic. Example:
+#   alias front_door        secnum b2
+#   alias sliding_door      secnum DA
+# (Confirm the exact alias directive syntax against heyu docs in Phase 2.)

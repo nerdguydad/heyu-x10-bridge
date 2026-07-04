@@ -1,0 +1,73 @@
+fan_on:
+  alias: "Fan On"
+  icon: mdi:fan
+  sequence:
+    - service: remote.send_command
+      target:
+        entity_id: remote.family_room
+      data:
+        command: "b64:JgDaACwKLAoQJSkOLQkRJRElDigNKSkOESQR+SsLLAkRJigOKwsPJwwqDycPJysLECYN/CgOKgsPKCoMKwsPJxAmESUQJywJESYM/C0JLAsQJS0JLQoRJRAmECYRJSwKESYQ9y0JLQoRJSwKLAsQJRAmESYQJS0KESUR9ywLLAoRJSwLKwsQJhAmESURJSwLESUQ9y0KLAoRJSsMLAoQJxAlESURJisLESUQ9y0LLAoQJiwKLQkRJhElECUQJywKESYR9ywKLAsQJS0JLQoRJQ8nECcQJS0JESYRAA0FAAAAAAAAAAAAAAAA"
+
+fan_rotate:
+  alias: "Fan Rotate"
+  icon: mdi:fan-chevron-down
+  sequence:
+    - service: remote.send_command
+      target:
+        entity_id: remote.family_room
+      data:
+        command: "b64:JgCqACwKLAsQJS0KLAoRJREmESUQJhAmDyct3CwKLQkQJiwKLQoQJxAmECcQJRElESYr3CwKLAsQJSoMLQsQJQ4pESURJQ4pDSgt2yoNLAoRJSwLLAoRJhAlESURJhAmDigs3CwKLAoRJiwJLQoRJREmECYNKRAlDikp3yoNKwsQJiwKLAoRJQ4pESUQJRAnDigt3CwKLQkRJisLLAoRJhAlECgQJRElECYsAA0FAAAAAAAAAAAAAAAA"
+
+fan_speed_up:
+  alias: "Fan Speed Up"
+  icon: mdi:fan-speed-2
+  sequence:
+    - service: remote.send_command
+      target:
+        entity_id: remote.family_room
+      data:
+        command: "b64:JgDCACkOJw0NKigOKA4pDgwqDyYPKCoMKwsP+SoMKwsPJyoMKwsrDQ8mECYQJyoMKwsP+CoMKwoQJyoMKwsrDA8oDicPJykOKwsN+ikNKgwNKigOKQ0pDg0pDicOKSkNKQ4N+SgOKQ0NKSkNKgwqDg0oDigNKigOKQ4M+ikNKgwOKSgOKQ4oDg4oDygMKSkNKg4M9ywMKQ0NKSkNKg0pDg0oDygNKSgOKQ4N9yoOKQ0NKSoMKg4oDg0oECcNKSgOKwwNAA0FAAAAAA=="
+
+hdmi_select_1:
+  alias: "HDMI Select 1"
+  icon: mdi:video-input-hdmi
+  sequence:
+    - service: remote.send_command
+      target:
+        entity_id: remote.family_room
+      data:
+        command: "b64:JgBQAAABJI0VDxUPFBAVDxUPFQ8VMxYPFDQUNRQzFTQVMxU0FQ8VMxU0FDQUNRQzFQ8WDxUPFQ8UEBUOFg8VDxUzFTQUMxYzFQAE/AABI0UWAA0FAAAAAAAA"
+    - delay:
+        milliseconds: 500
+    - service: remote.send_command
+      target:
+        entity_id: remote.family_room
+      data:
+        command: "b64:JgBYAAABIo8UERMREhITEBQRExETNRMRFDUTNRQ1EjUVNBQ0FRATNRMRFDUSEhMQFBETERMRExEUNRMQFDUUNBM2EzUTNhM1EgAE/wABI0YTAAwPAAEiRhQADQUAAAAAAAAAAAAAAAAAAA=="
+
+hdmi_select_2:
+  alias: "HDMI Select 2"
+  icon: mdi:video-input-hdmi
+  sequence:
+    - service: remote.send_command
+      target:
+        entity_id: remote.family_room
+      data:
+        command: "b64:JgBQAAABJI0VDxUPFBAVDxUPFQ8VMxYPFDQUNRQzFTQVMxU0FQ8VMxU0FDQUNRQzFQ8WDxUPFQ8UEBUOFg8VDxUzFTQUMxYzFQAE/AABI0UWAA0FAAAAAAAA"
+    - delay:
+        milliseconds: 500
+    - service: remote.send_command
+      target:
+        entity_id: remote.family_room
+      data:
+        command: "b64:JgBgAAABIZATERQRFRAREhESFRESNRIRFTQTNhM1EzYTNRI3FBATNRQ1EjYUEBMSEhISERMSEhISERMRFDUSNxI2EjgRNhM2EgAE/wABIkYVAAwOAAEiRxQADA4AASJIEwANBQAAAAAAAA=="
+
+tv_power_on:
+  alias: "TV Power On"
+  icon: mdi:power
+  sequence:
+    - service: remote.send_command
+      target:
+        entity_id: remote.family_room
+      data:
+        command: "b64:JgBYAAABIo8TERQREhMTERUQFBETNBURFDQTNRQ0FDUUNBQ1FBAUNBUREzQUERUQFDQVEBQRExAUNRQRETYSNxITETcSNhI3EgAE+QABJEYVAAl9EbcKIwkADQUAAAAAAAAAAAAAAAAAAA=="

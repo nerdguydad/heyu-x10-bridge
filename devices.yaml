@@ -1,0 +1,304 @@
+# devices.yaml — source of truth for the heyu MQTT bridge.
+# bridge.py reads this and:
+#   - subscribes to command topics for controllable devices
+#   - publishes state + MQTT discovery for every device
+#   - maps heyu monitor events (powerline house/unit + RF security codes) to names
+#
+# Field reference:
+#   name:       unique HA object_id / MQTT node id
+#   addr:       heyu address. Powerline = house+unit (A1). RF security = code (b2, 80, BE).
+#   kind:       powerline | rf
+#   component:  HA MQTT discovery component (light, switch, binary_sensor, sensor,
+#               device_trigger, alarm_control_panel, input_select)
+#   controllable: true if HA can command it (powerline actors). false for sensors/keyfobs.
+#   payload_on / payload_off: how to map raw heyu state to ON/OFF for sensors.
+#               (RF security uses alert/normal; MS13 motion uses on/off; dark uses on=dark)
+#   meross_uuid / broadlink_cmd: cross-reference for automations (informational; the
+#               actual automations live in HA, not the bridge).
+#   note:       free text / flags. "collision" and "needs-clarification" are reviewed
+#               in docs/entity-map.md.
+
+# ───────────────────────── POWERLINE LIGHTS (controllable) ─────────────────────────
+lights:
+  - name: garage_light
+    addr: A1
+    kind: powerline
+    component: light
+    controllable: true
+  - name: basement_stairwell
+    addr: A10
+    kind: powerline
+    component: light
+    controllable: true
+    note: auto-driven by stairwell_door / basement_motion automations
+  - name: bedroom_light1
+    addr: C1
+    kind: powerline
+    component: light
+    controllable: true
+    note: REMOVED — both bedroom lights are Meross now, controlled via M1/M2 bedside remotes. No palmpad for C1.
+    removed: true
+  - name: bedroom_light2
+    addr: C1
+    kind: powerline
+    component: light
+    controllable: true
+    note: REMOVED — duplicate of bedroom_light1, both Meross now.
+    removed: true
+  - name: backyard_light
+    addr: D2
+    kind: powerline
+    component: light
+    controllable: true
+    note: REMOVED — backyard light is now an outdoor camera, not X10. D2 belongs to family_room_lamp.
+    removed: true
+  - name: laundry_room_light
+    addr: C10
+    kind: powerline
+    component: light
+    controllable: true
+    note: auto-driven by laundry_room motion automation
+  - name: upstairs_hall_light
+    addr: C12
+    kind: powerline
+    component: light
+    controllable: true
+    note: auto-driven by armed-home night-light automation
+  - name: main_floor_hall_light
+    addr: C13
+    kind: powerline
+    component: light
+    controllable: true
+    note: auto-driven by armed-home night-light automation
+
+# ───────────────────────── POWERLINE SWITCHES (controllable actors / triggers) ─────
+switches:
+  - name: chime
+    addr: C9
+    kind: powerline
+    component: switch
+    controllable: true
+    note: X10 chime module; momentary on/off pulses it
+  - name: disable_chime
+    addr: D8
+    kind: powerline
+    component: switch
+    controllable: true
+    note: virtual chime-mute; behaves like input_boolean
+  - name: family_room_floor_lamp
+    addr: D1
+    kind: powerline
+    component: switch
+    controllable: true
+    meross_uuid: 2112093764679151859248e1e9810953
+    note: physical X10 palmpad controller; D1 on/off mirrors to Meross Family Room Floor Lamp
+  - name: family_room_lamp
+    addr: D2
+    kind: powerline
+    component: switch
+    controllable: true
+    meross_uuid: 2109270188328051807348e1e9785a4a
+    note: REMOVED — Meross Family Room Lamp not plugged in. D2 palmpad has no target. Remove from bridge.
+    removed: true
+  - name: select_hdmi
+    addr: D7
+    kind: powerline
+    component: switch
+    controllable: true
+    broadlink_macro: "hdmi_1/input_select/delay/source_hdmi_1 (on); hdmi_2/... (off)"
+    note: physical X10 remote/keypad confirmed; drives Broadlink HDMI switch via HA automation
+  - name: family_room_fan
+    addr: D6
+    kind: powerline
+    component: switch
+    controllable: true
+    broadlink_cmd: "on=fan_on, off=fan_rotate, brighten=fan_speed, dim=fan_speed:3"
+    note: physical X10 palmpad confirmed; drives Broadlink fan IR via HA automation
+  - name: bedside_1
+    addr: M1
+    kind: powerline
+    component: switch
+    controllable: true
+    meross_uuid: 2109273190475351807348e1e978582c
+    note: needs-clarification — physical X10 controller behind it?
+  - name: bedside_2
+    addr: M2
+    kind: powerline
+    component: switch
+    controllable: true
+    meross_uuid: 2109270216191251807348e1e97866a1
+    note: needs-clarification
+  - name: bedside_3
+    addr: M3
+    kind: powerline
+    component: switch
+    controllable: true
+    meross_uuid: TBD
+    note: physical bedside remote; needs new Meross light for master bedroom (same as master_motion)
+  - name: bedside_4
+    addr: M4
+    kind: powerline
+    component: switch
+    controllable: true
+    note: physical bedside remote; new use — TBD what it controls
+  - name: powerhorn
+    addr: E12
+    kind: powerline
+    component: switch
+    controllable: true
+    note: pulsed by powerhorn_trigger automation
+
+# ───────────────────────── RF SECURITY — DOOR SENSORS (receive-only) ───────────────
+rf_door_sensors:
+  - name: garage_house_door
+    addr: F4
+    kind: rf
+    component: binary_sensor
+    controllable: false
+    payload_on: alert
+    payload_off: normal
+  - name: stairwell_door
+    addr: F7
+    kind: rf
+    component: binary_sensor
+    controllable: false
+    payload_on: alert
+    payload_off: normal
+  - name: front_door
+    addr: b2
+    kind: rf
+    component: binary_sensor
+    controllable: false
+    payload_on: alert
+    payload_off: normal
+  - name: sliding_door
+    addr: DA
+    kind: rf
+    component: binary_sensor
+    controllable: false
+    payload_on: alert
+    payload_off: normal
+  - name: garage_outside_door
+    addr: F3
+    kind: rf
+    component: binary_sensor
+    controllable: false
+    payload_on: alert
+    payload_off: normal
+
+# ───────────────────────── RF SECURITY — MOTION SENSORS (receive-only) ────────────
+rf_motion_sensors:
+  - name: front_hall
+    addr: "80"
+    kind: rf
+    component: binary_sensor
+    controllable: false
+    payload_on: alert
+    payload_off: normal
+  - name: laundry_room
+    addr: "38"
+    kind: rf
+    component: binary_sensor
+    controllable: false
+    payload_on: alert
+    payload_off: normal
+  - name: upstairs_hall
+    addr: CB
+    kind: rf
+    component: binary_sensor
+    controllable: false
+    payload_on: alert
+    payload_off: normal
+
+# ───────────────────────── POWERLINE MS13 MOTION SENSORS (receive via CM11) ────────
+powerline_motion_sensors:
+  - name: garage_motion
+    addr: C5
+    kind: powerline
+    component: binary_sensor
+    controllable: false
+    payload_on: "on"
+    payload_off: "off"
+    dark_companion: garage_motion_dark
+  - name: basement_motion
+    addr: I1
+    kind: powerline
+    component: binary_sensor
+    controllable: false
+    payload_on: "on"
+    payload_off: "off"
+    dark_companion: basement_motion_dark
+  - name: master_motion
+    addr: K1
+    kind: powerline
+    component: binary_sensor
+    controllable: false
+    payload_on: "on"
+    payload_off: "off"
+    note: sensor alive; needs new Meross light for master bedroom (TBD UUID)
+
+# ───────────────────────── POWERLINE MS13 DARK/LIGHT-LEVEL COMPANIONS ─────────────
+powerline_dark_sensors:
+  - name: garage_motion_dark
+    addr: C6
+    kind: powerline
+    component: binary_sensor
+    controllable: false
+    payload_on: "on"      # on => dark
+    payload_off: "off"
+  - name: basement_motion_dark
+    addr: I2
+    kind: powerline
+    component: binary_sensor
+    controllable: false
+    payload_on: "on"
+    payload_off: "off"
+
+# ───────────────────────── RF KEYFOBS (event triggers, receive-only) ──────────────
+# Represented as HA device_trigger (for automations) + a sensor showing last event.
+rf_keyfobs:
+  - name: craig_security_fob
+    addr: BE
+    kind: rf
+    component: device_trigger
+    controllable: false
+    events: [lights_on, lights_off]
+    meross_uuids: [2109275593887451807348e1e9786c7b, 2109279915196351807348e1e9786741]
+  - name: craig_bedside_control
+    addr: B8
+    kind: rf
+    component: device_trigger
+    controllable: false
+    events: [arm_home, arm_away, disarm]
+  - name: tara_bedside_control
+    addr: E1
+    kind: rf
+    component: device_trigger
+    controllable: false
+    events: [arm_home, arm_away, disarm]
+
+# ───────────────────────── TRIGGER INPUT ──────────────────────────────────────────
+trigger_inputs:
+  - name: powerhorn_trigger
+    addr: E13
+    kind: powerline
+    component: binary_sensor
+    controllable: false
+    payload_on: "on"
+    payload_off: "off"
+    note: drives the powerhorn pulse automation
+
+# ───────────────────────── MH MODES (virtual → HA entities) ───────────────────────
+# These are NOT X10 devices. The bridge exposes them over MQTT so HA has entities
+# for the alarm/mode state used by automations. Keyfobs set them; automations read them.
+modes:
+  - name: mode_security
+    component: alarm_control_panel
+    states: [disarmed, armed_home, armed_away]
+    note: set by craig/tara_bedside_control keyfobs
+  - name: mode_occupied
+    component: input_select
+    states: [home, work]
+  - name: mode_sleeping
+    component: input_select
+    states: [all, none]

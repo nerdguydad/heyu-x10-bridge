@@ -317,10 +317,16 @@ class HeyuBridge:
             time.sleep(5)
 
     def _monitor_watchdog(self):
-        """Watchdog: if heyu monitor is silent for >90s, restart heyu engine.
+        """Watchdog: if heyu monitor is silent for >90s, unstick the CM11A.
 
         The W800RF32A receives motion sensor events every ~10s, so 90s of
         silence means heyu is likely stuck on CM11A communication.
+
+        Instead of restarting all heyu daemons (which would also restart the
+        aux/W800RF32A and lose RF events), we send SIGUSR1 to the heyu_relay
+        process.  The patched relay.c has a signal handler that closes and
+        reopens just the CM11A serial port — the MisterHouse-style "unstick"
+        operation.  The engine and aux daemons keep running uninterrupted.
         """
         while not self._stop.is_set():
             time.sleep(30)
@@ -328,17 +334,28 @@ class HeyuBridge:
                 break
             silence = time.time() - self._last_monitor_time
             if silence > 90:
-                log.warning("watchdog: heyu monitor silent for %.0fs; restarting engine", silence)
+                log.warning("watchdog: heyu monitor silent for %.0fs; sending SIGUSR1 to heyu_relay", silence)
                 try:
-                    subprocess.run([self.heyu, "stop"], timeout=10,
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    time.sleep(2)
-                    subprocess.run([self.heyu, "start"], timeout=10,
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    log.info("watchdog: heyu engine restarted")
+                    # Send SIGUSR1 to heyu_relay to close/reopen the CM11A serial port
+                    result = subprocess.run(
+                        ["pkill", "-USR1", "heyu_relay"],
+                        timeout=10, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                    if result.returncode == 0:
+                        log.info("watchdog: SIGUSR1 sent to heyu_relay (CM11A port reopened)")
+                    else:
+                        # Fallback: if pkill fails (e.g. process name mismatch),
+                        # try finding the PID via the lock file
+                        log.warning("watchdog: pkill heyu_relay failed (rc=%s), trying pidof", result.returncode)
+                        result2 = subprocess.run(
+                            ["sh", "-c", "pidof heyu_relay | xargs -r kill -USR1"],
+                            timeout=10, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        if result2.returncode == 0:
+                            log.info("watchdog: SIGUSR1 sent via pidof")
+                        else:
+                            log.error("watchdog: could not find heyu_relay process to signal")
                 except Exception as e:
-                    log.error("watchdog: failed to restart heyu: %s", e)
-                self._last_monitor_time = time.time()  # reset to avoid repeated restarts
+                    log.error("watchdog: failed to send SIGUSR1 to heyu_relay: %s", e)
+                self._last_monitor_time = time.time()  # reset to avoid repeated triggers
 
     def _parse_monitor_line(self, line: str):
         """Parse one `heyu monitor` line and publish state.

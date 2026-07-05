@@ -14,7 +14,7 @@ ARG HEYU_URL=http://www.heyu.org/download/heyu-${HEYU_VERSION}.tar.gz
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential ca-certificates curl tar \
         python3 python3-pip python3-venv \
-        jq \
+        jq procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Build heyu from source.
@@ -31,6 +31,14 @@ RUN mkdir -p /opt/heyu-build && cd /opt/heyu-build \
     && make \
     && printf '4\n' | make install \
     && which heyu
+
+# Patch relay.c to add SIGUSR1 handler for un-sticking the CM11A serial port
+# without restarting all daemons (MisterHouse-style unstick operation).
+COPY patches/relay.c /tmp/heyu-patch-relay.c
+RUN cd /opt/heyu-build/heyu-${HEYU_VERSION} \
+    && cp /tmp/heyu-patch-relay.c relay.c \
+    && make \
+    && printf '4\n' | make install
 
 # Python deps for the bridge
 RUN pip3 install --no-cache-dir --break-system-packages paho-mqtt PyYAML
